@@ -1,0 +1,36 @@
+name: probe
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [probe]
+  schedule:
+    - cron: "*/10 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet requests
+      - run: python probe.py
+      - name: commit results
+        run: |
+          git config user.name "probe-bot"
+          git config user.email "probe-bot@users.noreply.github.com"
+          git add results/
+          git commit -m "cycle $(date -u +%FT%TZ)" || exit 0
+          for i in 1 2 3; do
+            git push && break
+            git pull --rebase origin main
+          done
