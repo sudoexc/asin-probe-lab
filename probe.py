@@ -86,10 +86,12 @@ def parse(body):
     return out
 
 
-def fetch_one(sess, asin):
-    """Fetch one ASIN with retries. Returns result row."""
+def fetch_one(asin):
+    """Fetch one ASIN with retries, fresh session each attempt (models
+    production: each ASIN hit once per cycle, no cookie carryover)."""
     row = {"asin": asin, "attempts": 0}
     for attempt in range(1 + MAX_RETRIES):
+        sess = requests.Session()
         row["attempts"] = attempt + 1
         t0 = time.time()
         try:
@@ -129,7 +131,6 @@ def main():
         ipinfo = {"error": str(e)}
     print(f"RUNNER IP: {json.dumps(ipinfo)}", flush=True)
 
-    sess = requests.Session()
     plan = []
     while len(plan) < CYCLE_SIZE:
         batch = ASINS[:]
@@ -140,7 +141,7 @@ def main():
     rows = []
     t_start = time.time()
     for i, asin in enumerate(plan):
-        row = fetch_one(sess, asin)
+        row = fetch_one(asin)
         row["i"] = i
         rows.append(row)
         price = row.get("price", "-")
